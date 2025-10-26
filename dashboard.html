@@ -2,7 +2,7 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resultados — Villa Parque Santa Ana</title>
+<title>Resultados — Dashboard</title>
 <style>
   :root{
     --shadow:0 10px 30px rgba(0,0,0,.08);
@@ -20,29 +20,17 @@
   .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .btn{padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#0f172a;color:#fff;font-weight:600;cursor:pointer}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
+  select{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
 
-  /* Panel superior: participación */
-.kpis{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:8px;             /* menos separación vertical */
-  transform:scale(1); /* 💡 reduce todo el bloque a la mitad */
-  transform-origin: left top; /* ancla la escala al borde superior izquierdo */
-}
-.card{
-  background:#fff;
-  border-radius:14px;
-  box-shadow:var(--shadow);
-  padding:8px;         /* menos padding */
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border:1px solid #e5e7eb;
-}
-.kpi-title{font-size:10px;color:#64748b}
-.kpi-big{font-weight:800;font-size:16px}
-.kpi-sub{font-size:10px;color:#64748b}
-
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:1fr;gap:12px}
+  .card{
+    background:#fff;border-radius:14px;box-shadow:var(--shadow);
+    padding:14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb
+  }
+  .kpi-title{font-size:12px;color:#64748b}
+  .kpi-big{font-weight:800;font-size:26px}
+  .kpi-sub{font-size:12px;color:#64748b}
 
   /* Lista vertical (ranking) */
   .list{display:flex;flex-direction:column;gap:10px}
@@ -95,18 +83,29 @@
 </style>
 <body>
 <header>
-  <h1>Resultados — Villa Parque Santa Ana 26 de Octubre de 2025</h1>
+  <h1>Resultados — Dashboard</h1>
   <span id="status" class="badge">Listo</span>
 </header>
 
 <div class="wrap">
   <div class="toolbar">
+    <label for="mesaFiltro" class="badge">Mesa</label>
+    <select id="mesaFiltro">
+      <option value="">Todas</option>
+      <option>8367</option><option>8368</option><option>8369</option><option>8370</option>
+      <option>8371</option><option>8372</option>
+      <option>8373</option><option>8374</option><option>8375</option><option>8376</option>
+      <option>8377</option><option>8378</option><option>8379</option>
+    </select>
+
+    <span id="mesasInfo" class="badge">–</span>
+    
     <button id="btnRefresh" class="btn">Refrescar</button>
-    <span class="badge">Fuente: Recuento de Votos</span>
+    <span class="badge">Fuente: Supabase</span>
     <span id="last" class="badge">Sin actualizar</span>
   </div>
 
-  <!-- NUEVO: KPIs -->
+  <!-- KPIs -->
   <div class="kpis">
     <div class="card">
       <div>
@@ -119,7 +118,7 @@
 
   <!-- Ranking -->
   <div id="list" class="list"></div>
-  <div id="empty" class="empty" style="display:none;">Sin datos todavía. Cargá alguna mesa para ver resultados.</div>
+  <div id="empty" class="empty" style="display:none;">Sin datos todavía.</div>
 
   <!-- Resumen -->
   <div id="resumen" class="summary"></div>
@@ -153,6 +152,19 @@ const LOGO_FILE = {
 };
 function logoPath(n){return LOGO_FILE[n]?`assets/logos/${LOGO_FILE[n]}`:''}
 
+/* Orden oficial de listas para el ranking */
+const LISTAS_ORDEN = [
+  "Partido Libertario","Alianza Fuerza Patria","Alianza Ciudadanos","Unión Popular Federal",
+  "Alianza Encuentro por la República","Frente Federal de Acción Solidaria",
+  "Política Abierta para la Integridad Social (PAIS)","Alianza Córdoba Te Quiero","Partido Demócrata",
+  "Acción Para el Cambio (APEC)","Defendamos Córdoba",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD","Alianza La Libertad Avanza","Unión Cívica Radical",
+  "PRO - Propuesta Republicana","Movimiento Avanzada Socialista","FE","Alianza Provincias Unidas"
+];
+
+  /* Total de mesas del operativo (para el indicador) */
+const TODAS_MESAS = ['8367','8368','8369','8370','8371','8372','8373','8374','8375','8376','8377','8378','8379'];
+  
 /* Helpers */
 const $=id=>document.getElementById(id);
 const status=t=>$('status').textContent=t;
@@ -160,39 +172,71 @@ function fmt(n){return new Intl.NumberFormat('es-AR').format(n);}
 function pct(n,d){return d?(n/d*100).toFixed(1):'0.0';}
 function now(){return new Date().toLocaleString('es-AR');}
 
-/* Fetch */
+/* Fetch util */
 async function fetchJSON(url){
   const r=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});
   if(!r.ok)throw new Error(`HTTP ${r.status} ${await r.text()}`);
   return r.json();
 }
-async function fetchTotalesBNR(){
-  const url=`${SUPABASE_URL}/rest/v1/v_totales_bnr?select=blancos,nulos,recurridos`;
-  const a=await fetchJSON(url);
-  return a&&a[0]?{blancos:+a[0].blancos||0,nulos:+a[0].nulos||0,recurridos:+a[0].recurridos||0}:{blancos:0,nulos:0,recurridos:0};
-}
-async function fetchRanking(){
-  const url=`${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
+
+/* Carga cruda desde cargas_mesa (opcionalmente filtrada por mesa) */
+async function fetchCargas(mesa){
+  const base = `${SUPABASE_URL}/rest/v1/cargas_mesa?select=mesa,listas,votos,blancos,nulos,recurridos,sobres,electores`;
+  const url = mesa ? `${base}&mesa=eq.${mesa}` : base;
   return fetchJSON(url);
 }
-/* NUEVO: participación (vista v_participacion) */
-async function fetchParticipacion(){
-  const url=`${SUPABASE_URL}/rest/v1/v_participacion?select=sobres,electores`;
-  const a=await fetchJSON(url);
-  return a && a[0] ? {sobres:+a[0].sobres||0, electores:+a[0].electores||0} : {sobres:0,electores:0};
+
+/* Agregación en cliente */
+function aggregate(rows){
+  // Totales BNR y participación
+  let blancos=0,nulos=0,recurridos=0,sobres=0,electores=0;
+
+  // Iniciar mapa de votos por lista respetando orden oficial
+  const map = new Map(LISTAS_ORDEN.map(n=>[n,0]));
+
+  rows.forEach(r=>{
+    blancos += +r.blancos||0;
+    nulos += +r.nulos||0;
+    recurridos += +r.recurridos||0;
+    sobres += +r.sobres||0;
+    electores += +r.electores||0;
+
+    const listas = Array.isArray(r.listas)?r.listas:[];
+    const votos  = Array.isArray(r.votos)?r.votos:[];
+    const m = Math.min(listas.length, votos.length);
+    for(let i=0;i<m;i++){
+      const nombre = listas[i];
+      const v = +votos[i]||0;
+      if(!map.has(nombre)) map.set(nombre,0); // por si llega una etiqueta inesperada
+      map.set(nombre, map.get(nombre)+v);
+    }
+  });
+
+  const ranking = Array.from(map.entries())
+    .map(([lista,total_votos])=>({lista,total_votos}))
+    .sort((a,b)=>b.total_votos - a.total_votos)
+    .map((row,idx)=>({...row, ranking: idx+1}));
+
+  const afirmativos = ranking.reduce((a,b)=>a+(+b.total_votos||0),0);
+
+  return { ranking, blancos, nulos, recurridos, sobres, electores, afirmativos };
 }
 
-/* Render ranking */
-function renderLista(data){
+/* Render */
+function renderLista(ranking, totalAfirm){
   const list=$('list'),empty=$('empty');
   list.innerHTML='';
-  if(!data?.length){empty.style.display='block';return 0;}
+  if(!ranking?.length || totalAfirm===0){
+    empty.style.display='block'; return;
+  }
   empty.style.display='none';
-  const totalAfirm=data.reduce((a,b)=>a+(+b.total_votos||0),0);
 
-  data.forEach(r=>{
-    const votos=+r.total_votos||0,rank=+r.ranking||999,tier=rank==1?'tier-1':rank==2?'tier-2':rank==3?'tier-3':'tier-4';
-    const src=logoPath(r.lista);
+  ranking.forEach(r=>{
+    const rank=+r.ranking||999;
+    const votos=+r.total_votos||0;
+    const tier = rank==1?'tier-1':rank==2?'tier-2':rank==3?'tier-3':'tier-4';
+    const src = logoPath(r.lista);
+
     const el=document.createElement('div');
     el.className=`item ${tier}`;
     el.innerHTML=`
@@ -202,23 +246,23 @@ function renderLista(data){
       <div class="value">
         <div class="pct">${pct(votos,totalAfirm)}%</div>
         <div class="num">${fmt(votos)} votos</div>
-      </div>`;
+      </div>
+    `;
     list.appendChild(el);
   });
-  return totalAfirm;
 }
 
-/* Render resumen */
 function renderResumen({afirm,blancos,nulos,recurridos}){
-  const total=afirm+blancos+nulos+recurridos,div=$('resumen');
+  const total=afirm+blancos+nulos+recurridos;
+  const div=$('resumen');
   div.innerHTML=`
     <div class="sum-card"><div class="label">Afirmativos</div><div class="big">${fmt(afirm)}</div><div class="sub">${pct(afirm,total)}% del total</div></div>
     <div class="sum-card"><div class="label">Blancos</div><div class="big">${fmt(blancos)}</div><div class="sub">${pct(blancos,total)}% del total</div></div>
     <div class="sum-card"><div class="label">Nulos</div><div class="big">${fmt(nulos)}</div><div class="sub">${pct(nulos,total)}% del total</div></div>
-    <div class="sum-card"><div class="label">Recurridos/Impugnados</div><div class="big">${fmt(recurridos)}</div><div class="sub">${pct(recurridos,total)}% del total</div></div>`;
+    <div class="sum-card"><div class="label">Recurridos/Impugnados</div><div class="big">${fmt(recurridos)}</div><div class="sub">${pct(recurridos,total)}% del total</div></div>
+  `;
 }
 
-/* NUEVO: render KPI participación */
 function renderParticipacion({sobres,electores}){
   const p = electores>0 ? (sobres/electores*100) : 0;
   $('kpiPart').textContent = `${p.toFixed(1)}%`;
@@ -229,18 +273,37 @@ function renderParticipacion({sobres,electores}){
 let timer=null;
 async function load(){
   try{
-    status('Cargando…');$('btnRefresh').disabled=true;
-    const [rank,bnr,part]=await Promise.all([fetchRanking(),fetchTotalesBNR(),fetchParticipacion()]);
-    const afirm=renderLista(rank);
-    renderParticipacion(part);
-    renderResumen({afirm,...bnr});
-    status('Listo');$('last').textContent=`Actualizado: ${now()}`;
-  }catch(e){status('Error');$('last').textContent=e.message;console.error(e);}
-  finally{$('btnRefresh').disabled=false;}
+    status('Cargando…'); $('btnRefresh').disabled=true;
+    const mesa = $('mesaFiltro').value || '';
+    const rows = await fetchCargas(mesa);
+
+// Indicador de mesas con datos
+const mesasInfoEl = $('mesasInfo');
+const mesasConDatos = new Set(rows.map(r => String(r.mesa))).size;
+if (mesa) {
+  const cargasMesa = rows.length;
+  mesasInfoEl.textContent = `Mesa ${mesa}: ${cargasMesa} carga${cargasMesa!==1?'s':''}`;
+} else {
+  mesasInfoEl.textContent = `${mesasConDatos}/${TODAS_MESAS.length} mesas con datos`;
 }
-$('btnRefresh').addEventListener('click',load);
-function startAuto(){if(timer)clearInterval(timer);timer=setInterval(load,20000);}
-load();startAuto();
+    
+    const agg = aggregate(rows);
+    renderLista(agg.ranking, agg.affirmativos ?? agg.afirmativos); // compat
+    renderParticipacion({sobres:agg.sobres, electores:agg.electores});
+    renderResumen({afirm:agg.afirmativos, blancos:agg.blancos, nulos:agg.nulos, recurridos:agg.recurridos});
+    status('Listo'); $('last').textContent = `Actualizado: ${now()}${mesa?` | Mesa ${mesa}`:''}`;
+  }catch(e){
+    status('Error'); $('last').textContent = e.message; console.error(e);
+  }finally{
+    $('btnRefresh').disabled=false;
+  }
+}
+$('btnRefresh').addEventListener('click', load);
+$('mesaFiltro').addEventListener('change', load);
+function startAuto(){ if(timer) clearInterval(timer); timer=setInterval(load, 20000); }
+
+/* Init */
+load(); startAuto();
 </script>
 </body>
 </html>

@@ -2,9 +2,15 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resultados — Dashboard</title>
+<title>Resultados — Villa Parque Santa Ana 26 de Octubre de 2025</title>
 <style>
-  :root{ --shadow:0 10px 30px rgba(0,0,0,.08); --bg:#f6f7fb; --ink:#0f172a; }
+  :root{
+    --shadow:0 10px 30px rgba(0,0,0,.08);
+    --bg:#f6f7fb; --ink:#0f172a;
+    --gold1:#fff7d6;   --gold2:#ffefad;   --gold-border:#f5d34f;
+    --silver1:#f5f7fb; --silver2:#e8edf6; --silver-border:#c9d3e6;
+    --bronze1:#fff0e0; --bronze2:#ffd9b8; --bronze-border:#e6a66a;
+  }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink)}
   header{position:sticky;top:0;z-index:5;background:#fff;box-shadow:var(--shadow);padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -20,26 +26,23 @@
   .item{
     background:#fff;border-radius:12px;box-shadow:var(--shadow);
     padding:12px; display:grid; grid-template-columns: 44px 56px 1fr auto;
-    gap:12px; align-items:center;
+    gap:12px; align-items:center; border:1px solid #e5e7eb;
   }
   .rank{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
         border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;font-weight:800}
-  .name{font-weight:700;line-height:1.2}
-  .value{font-variant-numeric:tabular-nums;text-align:right}
-  .value .num{font-weight:800}
-  .value .pct{font-size:12px;opacity:.8}
+  .name{font-weight:700;line-height:1.2;color:var(--ink)}
+  .value{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+  .value .pct{font-weight:800}
+  .value .num{font-size:13px;opacity:.8}
 
   /* Tamaños por tier */
-  .tier-1 .name{font-size:22px}
-  .tier-1 .num{font-size:34px}
-  .tier-2 .name{font-size:20px}
-  .tier-2 .num{font-size:28px}
-  .tier-3 .name{font-size:18px}
-  .tier-3 .num{font-size:22px}
+  .tier-1 .pct{font-size:34px}
+  .tier-2 .pct{font-size:28px}
+  .tier-3 .pct{font-size:22px}
   .tier-4{padding:8px; grid-template-columns: 36px 44px 1fr auto; }
   .tier-4 .rank{width:36px;height:36px;border-radius:10px}
   .tier-4 .name{font-size:16px;font-weight:600}
-  .tier-4 .num{font-size:18px}
+  .tier-4 .pct{font-size:18px}
 
   /* Logos */
   .logo{ width:40px; height:40px; object-fit:contain; }
@@ -53,13 +56,27 @@
   /* Resumen */
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   .card{
-    background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px
+    background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px; border:1px solid #e5e7eb;
   }
   .card .label{font-size:12px;color:#64748b}
-  .card .big{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px}
+  .card .big{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;color:var(--ink)}
   .card .sub{font-size:12px;color:#64748b}
   @media (max-width:900px){
     .summary{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* 🎖️ Realce sutil Top 3 (degradado + borde temático) */
+  .tier-1{
+    background: linear-gradient(180deg, var(--gold1), var(--gold2));
+    border-color: var(--gold-border);
+  }
+  .tier-2{
+    background: linear-gradient(180deg, var(--silver1), var(--silver2));
+    border-color: var(--silver-border);
+  }
+  .tier-3{
+    background: linear-gradient(180deg, var(--bronze1), var(--bronze2));
+    border-color: var(--bronze-border);
   }
 </style>
 <body>
@@ -86,29 +103,7 @@
 const SUPABASE_URL = 'https://jyxxflkxhlekyredxjfm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHhmbGt4aGxla3lyZWR4amZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0NjAyODUsImV4cCI6MjA3NzAzNjI4NX0.3E63g4A4MGvm7q1UBLosCKE1QZaAmqrGpCN06koIlKg';
 
-/* Colores opcionales por lista */
-const COLORS = {
-  "Alianza Provincias Unidas": "#0f172a",
-  "Alianza La Libertad Avanza": "#8b5cf6",
-  "Unión Cívica Radical": "#ef4444",
-  "PRO - Propuesta Republicana": "#f59e0b",
-  "Frente de Izquierda y de los Trabajadores - UNIDAD": "#dc2626",
-  "Partido Libertario": "#f59e0b",
-  "Alianza Fuerza Patria": "#2563eb",
-  "Alianza Ciudadanos": "#0891b2",
-  "Unión Popular Federal": "#16a34a",
-  "Alianza Encuentro por la República": "#0ea5e9",
-  "Frente Federal de Acción Solidaria": "#22c55e",
-  "Política Abierta para la Integridad Social (PAIS)": "#10b981",
-  "Alianza Córdoba Te Quiero": "#3b82f6",
-  "Partido Demócrata": "#6b7280",
-  "Acción Para el Cambio (APEC)": "#f97316",
-  "Defendamos Córdoba": "#64748b",
-  "Movimiento Avanzada Socialista": "#9333ea",
-  "FE": "#1f2937"
-};
-
-/* Archivo de logo por lista (PNG en assets/logos/) */
+/* Logos (PNG en assets/logos/) */
 const LOGO_FILE = {
   "Partido Libertario": "partido-libertario.png",
   "Alianza Fuerza Patria": "alianza-fuerza-patria.png",
@@ -129,125 +124,81 @@ const LOGO_FILE = {
   "FE": "fe.png",
   "Alianza Provincias Unidas": "provincias-unidas.png"
 };
-function logoPath(nombre){
-  const f = LOGO_FILE[nombre];
-  return f ? `assets/logos/${f}` : '';
-}
+function logoPath(n){return LOGO_FILE[n]?`assets/logos/${LOGO_FILE[n]}`:''}
 
-/* ====== Helpers ====== */
-const $ = id => document.getElementById(id);
-const status = txt => $('status').textContent = txt;
-function fmt(n){ return new Intl.NumberFormat('es-AR').format(n); }
-function pct(n,d){ return d ? (n/d*100).toFixed(1) : '0.0'; }
-function now(){ return new Date().toLocaleString('es-AR'); }
+/* Helpers */
+const $=id=>document.getElementById(id);
+const status=t=>$('status').textContent=t;
+function fmt(n){return new Intl.NumberFormat('es-AR').format(n);}
+function pct(n,d){return d?(n/d*100).toFixed(1):'0.0';}
+function now(){return new Date().toLocaleString('es-AR');}
 
-/* ====== Fetch a Supabase ====== */
+/* Fetch */
 async function fetchJSON(url){
-  const res = await fetch(url, { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SUPABASE_ANON_KEY } });
-  if(!res.ok){ throw new Error(`HTTP ${res.status} ${await res.text()}`); }
-  return res.json();
+  const r=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});
+  if(!r.ok)throw new Error(`HTTP ${r.status} ${await r.text()}`);
+  return r.json();
 }
-
-/* Totales (vista v_totales_bnr) */
 async function fetchTotalesBNR(){
-  const url = `${SUPABASE_URL}/rest/v1/v_totales_bnr?select=blancos,nulos,recurridos`;
-  const arr = await fetchJSON(url);
-  return arr && arr[0] ? {
-    blancos: Number(arr[0].blancos)||0,
-    nulos: Number(arr[0].nulos)||0,
-    recurridos: Number(arr[0].recurridos)||0
-  } : {blancos:0,nulos:0,recurridos:0};
+  const url=`${SUPABASE_URL}/rest/v1/v_totales_bnr?select=blancos,nulos,recurridos`;
+  const a=await fetchJSON(url);
+  return a&&a[0]?{blancos:+a[0].blancos||0,nulos:+a[0].nulos||0,recurridos:+a[0].recurridos||0}:{blancos:0,nulos:0,recurridos:0};
 }
-
-/* Ranking por lista (vista v_resultados) */
 async function fetchRanking(){
-  const url = `${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
+  const url=`${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
   return fetchJSON(url);
 }
 
-/* ====== Render ====== */
+/* Render */
 function renderLista(data){
-  const list = $('list');
-  const empty = $('empty');
-  list.innerHTML = '';
-  if(!data || !data.length){ empty.style.display='block'; return 0; }
+  const list=$('list'),empty=$('empty');
+  list.innerHTML='';
+  if(!data?.length){empty.style.display='block';return 0;}
   empty.style.display='none';
+  const totalAfirm=data.reduce((a,b)=>a+(+b.total_votos||0),0);
 
-  // Total de votos afirmativos (suma de listas)
-  const totalAfirmativos = data.reduce((a,b)=>a+(Number(b.total_votos)||0),0);
-
-  data.forEach(row=>{
-    const votos = Number(row.total_votos)||0;
-    const rank = Number(row.ranking)||999;
-    const color = COLORS[row.lista] || '#111827';
-    const tier = rank===1?'tier-1':rank===2?'tier-2':rank===3?'tier-3':'tier-4';
-    const srcLogo = logoPath(row.lista);
-
-    const item = document.createElement('div');
-    item.className = `item ${tier}`;
-    item.innerHTML = `
+  data.forEach(r=>{
+    const votos=+r.total_votos||0,rank=+r.ranking||999,tier=rank==1?'tier-1':rank==2?'tier-2':rank==3?'tier-3':'tier-4';
+    const src=logoPath(r.lista);
+    const el=document.createElement('div');
+    el.className=`item ${tier}`;
+    el.innerHTML=`
       <div class="rank">#${rank}</div>
-      <div>${srcLogo ? `<img class="logo" src="${srcLogo}" alt="${row.lista}" onerror="this.style.display='none'">` : ''}</div>
-      <div class="name" style="color:${color}">${row.lista}</div>
+      <div>${src?`<img class="logo" src="${src}" alt="${r.lista}" onerror="this.style.display='none'">`:''}</div>
+      <div class="name">${r.lista}</div>
       <div class="value">
-        <div class="num" style="color:${color}">${fmt(votos)}</div>
-        <div class="pct">(${pct(votos,totalAfirmativos)}% de afirmativos)</div>
-      </div>
-    `;
-    list.appendChild(item);
+        <div class="pct">${pct(votos,totalAfirm)}%</div>
+        <div class="num">${fmt(votos)} votos</div>
+      </div>`;
+    list.appendChild(el);
   });
-
-  return totalAfirmativos;
+  return totalAfirm;
 }
 
-function renderResumen({afirm, blancos, nulos, recurridos}){
-  const total = afirm + blancos + nulos + recurridos;
-  const div = $('resumen');
-  div.innerHTML = `
-    <div class="card">
-      <div class="label">Afirmativos</div>
-      <div class="big">${fmt(afirm)}</div>
-      <div class="sub">${pct(afirm,total)}% del total</div>
-    </div>
-    <div class="card">
-      <div class="label">Blancos</div>
-      <div class="big">${fmt(blancos)}</div>
-      <div class="sub">${pct(blancos,total)}% del total</div>
-    </div>
-    <div class="card">
-      <div class="label">Nulos</div>
-      <div class="big">${fmt(nulos)}</div>
-      <div class="sub">${pct(nulos,total)}% del total</div>
-    </div>
-    <div class="card">
-      <div class="label">Recurridos/Impugnados</div>
-      <div class="big">${fmt(recurridos)}</div>
-      <div class="sub">${pct(recurridos,total)}% del total</div>
-    </div>
-  `;
+function renderResumen({afirm,blancos,nulos,recurridos}){
+  const total=afirm+blancos+nulos+recurridos,div=$('resumen');
+  div.innerHTML=`
+    <div class="card"><div class="label">Afirmativos</div><div class="big">${fmt(afirm)}</div><div class="sub">${pct(afirm,total)}% del total</div></div>
+    <div class="card"><div class="label">Blancos</div><div class="big">${fmt(blancos)}</div><div class="sub">${pct(blancos,total)}% del total</div></div>
+    <div class="card"><div class="label">Nulos</div><div class="big">${fmt(nulos)}</div><div class="sub">${pct(nulos,total)}% del total</div></div>
+    <div class="card"><div class="label">Recurridos/Impugnados</div><div class="big">${fmt(recurridos)}</div><div class="sub">${pct(recurridos,total)}% del total</div></div>`;
 }
 
-/* ====== Ciclo ====== */
+/* Ciclo */
 let timer=null;
 async function load(){
   try{
-    status('Cargando…');
-    $('btnRefresh').disabled = true;
-    const [ranking, bnr] = await Promise.all([fetchRanking(), fetchTotalesBNR()]);
-    const afirm = renderLista(ranking);        // devuelve total afirmativos
-    renderResumen({afirm, ...bnr});
-    status('Listo'); $('last').textContent = `Actualizado: ${now()}`;
-  }catch(e){
-    status('Error'); $('last').textContent = e.message; console.error(e);
-  }finally{
-    $('btnRefresh').disabled = false;
-  }
+    status('Cargando…');$('btnRefresh').disabled=true;
+    const [rank,bnr]=await Promise.all([fetchRanking(),fetchTotalesBNR()]);
+    const afirm=renderLista(rank);
+    renderResumen({afirm,...bnr});
+    status('Listo');$('last').textContent=`Actualizado: ${now()}`;
+  }catch(e){status('Error');$('last').textContent=e.message;console.error(e);}
+  finally{$('btnRefresh').disabled=false;}
 }
-$('btnRefresh').addEventListener('click', load);
-function startAuto(){ if(timer) clearInterval(timer); timer=setInterval(load, 20000); }
-
-/* Init */
-load(); startAuto();
+$('btnRefresh').addEventListener('click',load);
+function startAuto(){if(timer)clearInterval(timer);timer=setInterval(load,20000);}
+load();startAuto();
 </script>
 </body>
 </html>

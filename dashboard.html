@@ -2,7 +2,7 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resultados — Villa Parque Santa Ana 26 de Octubre de 2025</title>
+<title>Resultados — Dashboard</title>
 <style>
   :root{
     --shadow:0 10px 30px rgba(0,0,0,.08);
@@ -21,7 +21,17 @@
   .btn{padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#0f172a;color:#fff;font-weight:600;cursor:pointer}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
 
-  /* Lista vertical */
+  /* Panel superior: participación */
+  .kpis{display:grid;grid-template-columns:1fr;gap:12px}
+  .card{
+    background:#fff;border-radius:14px;box-shadow:var(--shadow);
+    padding:14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb
+  }
+  .kpi-title{font-size:12px;color:#64748b}
+  .kpi-big{font-weight:800;font-size:26px}
+  .kpi-sub{font-size:12px;color:#64748b}
+
+  /* Lista vertical (ranking) */
   .list{display:flex;flex-direction:column;gap:10px}
   .item{
     background:#fff;border-radius:12px;box-shadow:var(--shadow);
@@ -53,31 +63,22 @@
 
   .empty{padding:20px;text-align:center;color:#64748b;border:1px dashed #e5e7eb;border-radius:12px;background:#fff}
 
-  /* Resumen */
+  /* Resumen al pie */
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  .card{
+  .sum-card{
     background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px; border:1px solid #e5e7eb;
   }
-  .card .label{font-size:12px;color:#64748b}
-  .card .big{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;color:var(--ink)}
-  .card .sub{font-size:12px;color:#64748b}
+  .sum-card .label{font-size:12px;color:#64748b}
+  .sum-card .big{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;color:var(--ink)}
+  .sum-card .sub{font-size:12px;color:#64748b}
   @media (max-width:900px){
     .summary{grid-template-columns:repeat(2,1fr)}
   }
 
-  /* 🎖️ Realce sutil Top 3 (degradado + borde temático) */
-  .tier-1{
-    background: linear-gradient(180deg, var(--gold1), var(--gold2));
-    border-color: var(--gold-border);
-  }
-  .tier-2{
-    background: linear-gradient(180deg, var(--silver1), var(--silver2));
-    border-color: var(--silver-border);
-  }
-  .tier-3{
-    background: linear-gradient(180deg, var(--bronze1), var(--bronze2));
-    border-color: var(--bronze-border);
-  }
+  /* 🎖️ Realce sutil Top 3 */
+  .tier-1{ background:linear-gradient(180deg,var(--gold1),var(--gold2)); border-color:var(--gold-border); }
+  .tier-2{ background:linear-gradient(180deg,var(--silver1),var(--silver2)); border-color:var(--silver-border); }
+  .tier-3{ background:linear-gradient(180deg,var(--bronze1),var(--bronze2)); border-color:var(--bronze-border); }
 </style>
 <body>
 <header>
@@ -88,13 +89,26 @@
 <div class="wrap">
   <div class="toolbar">
     <button id="btnRefresh" class="btn">Refrescar</button>
-    <span class="badge">Fuente: Escrutinio Provisorio</span>
+    <span class="badge">Fuente: Escrutinio</span>
     <span id="last" class="badge">Sin actualizar</span>
   </div>
 
+  <!-- NUEVO: KPIs -->
+  <div class="kpis">
+    <div class="card">
+      <div>
+        <div class="kpi-title">Participación</div>
+        <div id="kpiPart" class="kpi-big">–</div>
+        <div id="kpiPartSub" class="kpi-sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ranking -->
   <div id="list" class="list"></div>
   <div id="empty" class="empty" style="display:none;">Sin datos todavía. Cargá alguna mesa para ver resultados.</div>
 
+  <!-- Resumen -->
   <div id="resumen" class="summary"></div>
 </div>
 
@@ -148,8 +162,14 @@ async function fetchRanking(){
   const url=`${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
   return fetchJSON(url);
 }
+/* NUEVO: participación (vista v_participacion) */
+async function fetchParticipacion(){
+  const url=`${SUPABASE_URL}/rest/v1/v_participacion?select=sobres,electores`;
+  const a=await fetchJSON(url);
+  return a && a[0] ? {sobres:+a[0].sobres||0, electores:+a[0].electores||0} : {sobres:0,electores:0};
+}
 
-/* Render */
+/* Render ranking */
 function renderLista(data){
   const list=$('list'),empty=$('empty');
   list.innerHTML='';
@@ -175,13 +195,21 @@ function renderLista(data){
   return totalAfirm;
 }
 
+/* Render resumen */
 function renderResumen({afirm,blancos,nulos,recurridos}){
   const total=afirm+blancos+nulos+recurridos,div=$('resumen');
   div.innerHTML=`
-    <div class="card"><div class="label">Afirmativos</div><div class="big">${fmt(afirm)}</div><div class="sub">${pct(afirm,total)}% del total</div></div>
-    <div class="card"><div class="label">Blancos</div><div class="big">${fmt(blancos)}</div><div class="sub">${pct(blancos,total)}% del total</div></div>
-    <div class="card"><div class="label">Nulos</div><div class="big">${fmt(nulos)}</div><div class="sub">${pct(nulos,total)}% del total</div></div>
-    <div class="card"><div class="label">Recurridos/Impugnados</div><div class="big">${fmt(recurridos)}</div><div class="sub">${pct(recurridos,total)}% del total</div></div>`;
+    <div class="sum-card"><div class="label">Afirmativos</div><div class="big">${fmt(afirm)}</div><div class="sub">${pct(afirm,total)}% del total</div></div>
+    <div class="sum-card"><div class="label">Blancos</div><div class="big">${fmt(blancos)}</div><div class="sub">${pct(blancos,total)}% del total</div></div>
+    <div class="sum-card"><div class="label">Nulos</div><div class="big">${fmt(nulos)}</div><div class="sub">${pct(nulos,total)}% del total</div></div>
+    <div class="sum-card"><div class="label">Recurridos/Impugnados</div><div class="big">${fmt(recurridos)}</div><div class="sub">${pct(recurridos,total)}% del total</div></div>`;
+}
+
+/* NUEVO: render KPI participación */
+function renderParticipacion({sobres,electores}){
+  const p = electores>0 ? (sobres/electores*100) : 0;
+  $('kpiPart').textContent = `${p.toFixed(1)}%`;
+  $('kpiPartSub').textContent = `${fmt(sobres)} sobres / ${fmt(electores)} electores`;
 }
 
 /* Ciclo */
@@ -189,8 +217,9 @@ let timer=null;
 async function load(){
   try{
     status('Cargando…');$('btnRefresh').disabled=true;
-    const [rank,bnr]=await Promise.all([fetchRanking(),fetchTotalesBNR()]);
+    const [rank,bnr,part]=await Promise.all([fetchRanking(),fetchTotalesBNR(),fetchParticipacion()]);
     const afirm=renderLista(rank);
+    renderParticipacion(part);
     renderResumen({afirm,...bnr});
     status('Listo');$('last').textContent=`Actualizado: ${now()}`;
   }catch(e){status('Error');$('last').textContent=e.message;console.error(e);}

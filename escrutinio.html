@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escrutinio — Carga de Mesas</title>
+<style>
+  :root { --shadow: 0 10px 30px rgba(0,0,0,.08); }
+  *{ box-sizing: border-box; }
+  body{ margin:0; font-family: system-ui,Segoe UI,Roboto,Arial; background:#f6f7fb; color:#0f172a; }
+  header{ position:sticky; top:0; z-index:5; background:#fff; box-shadow:var(--shadow); padding:10px 16px; display:flex; align-items:center; gap:10px; }
+  h1{ margin:0; font-size:18px; }
+  .wrap{ max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  .card{ background:#fff; border-radius:12px; box-shadow:var(--shadow); padding:16px; }
+  .row{ display:grid; gap:10px; grid-template-columns:repeat(12,1fr); align-items:end; }
+  .col-3{grid-column:span 3} .col-4{grid-column:span 4} .col-6{grid-column:span 6} .col-8{grid-column:span 8} .col-12{grid-column:span 12}
+  label{ font-size:12px; color:#475569; }
+  input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; background:#fff; }
+  input[readonly]{ background:#f8fafc; }
+  textarea{ min-height:70px; }
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ border-bottom:1px dashed #e5e7eb; padding:8px; text-align:left; }
+  .right{text-align:right}
+  tfoot td{ font-weight:700; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#0f172a; color:#fff; font-weight:600; cursor:pointer; }
+  .btn[disabled]{ opacity:.6; cursor:not-allowed; }
+  .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; border:1px solid #e2e8f0; font-size:12px; color:#0f172a; }
+  .hint{ font-size:12px; color:#64748b; }
+  .ok{ color:#059669; } .err{ color:#dc2626; }
+  .muted{ opacity:.7; pointer-events:none; }
+  @media(max-width:900px){ .row{grid-template-columns:1fr} .col-3,.col-4,.col-6,.col-8,.col-12{grid-column:span 1} }
+</style>
+<body>
+<header>
+  <h1>Escrutinio — Carga de Mesas</h1>
+  <span id="status" class="badge">Listo</span>
+  <span id="mesaFijaBadge" class="badge" style="display:none;"></span>
+</header>
+
+<div class="wrap">
+  <div class="card"><div class="hint">Cargá los votos por lista en el orden oficial. El envío va directo a la base.</div></div>
+
+  <div class="card">
+    <div class="row">
+      <div class="col-3">
+        <label>Mesa</label>
+        <select id="mesaSel">
+          <option value="">Seleccionar mesa…</option>
+          <option>8367</option><option>8368</option><option>8369</option><option>8370</option>
+          <option>8371</option><option>8372</option>
+          <option>8373</option><option>8374</option><option>8375</option><option>8376</option>
+          <option>8377</option><option>8378</option><option>8379</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label>Escuela</label>
+        <input id="escuela" placeholder="Se completa automáticamente" readonly>
+      </div>
+      <div class="col-3">
+        <label>Electores (opcional)</label>
+        <input id="electores" inputmode="numeric" placeholder="Ej: 350">
+      </div>
+      <div class="col-4">
+        <label>Fiscal/Responsable</label>
+        <input id="fiscal" placeholder="Nombre y apellido">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="overflow:auto;">
+      <table>
+        <thead><tr><th style="width:70%;">Lista / Agrupación</th><th class="right" style="width:30%;">Votos</th></tr></thead>
+        <tbody id="tb"></tbody>
+        <tfoot><tr><td>Total listas</td><td id="filaTotal" class="right">0</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="col-6"><label>Blancos</label><input id="blancos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Nulos</label><input id="nulos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Recurridos / Impugnados</label><input id="recurridos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Total sobres (acta)</label><input id="sobres" inputmode="numeric" value="0"></div>
+      <div class="col-12"><label>Observaciones</label><textarea id="obs" placeholder="Observaciones o incidencias"></textarea></div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div class="col-6">
+        <button id="btnGuardar" class="btn">Enviar al servidor</button>
+        <span id="consistencia" class="hint" style="margin-left:10px;"></span>
+      </div>
+      <div class="col-6" style="text-align:right;">
+        <button id="btnNueva" class="btn" style="background:#475569;">Nueva carga</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== CONFIG SUPABASE ===== */
+const SUPABASE_URL = 'https://jyxxflkxhlekyredxjfm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHhmbGt4aGxla3lyZWR4amZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0NjAyODUsImV4cCI6MjA3NzAzNjI4NX0.3E63g4A4MGvm7q1UBLosCKE1QZaAmqrGpCN06koIlKg';
+
+const $ = id => document.getElementById(id);
+const statusEl = $('status');
+function setStatus(t){ statusEl.textContent = t; }
+function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
+function getQS(name){ const p=new URLSearchParams(location.search); return p.get(name)||''; }
+
+/* Mesa → Escuela */
+const MESAS = {
+  8367:"IPET 334", 8368:"IPET 335", 8369:"IPET 336", 8370:"IPET 337",
+  8371:"IPET 338", 8372:"IPET 339",
+  8373:"ESC PABLO PIZZURNO", 8374:"ESC PABLO PIZZURNO", 8375:"ESC PABLO PIZZURNO",
+  8376:"ESC PABLO PIZZURNO", 8377:"ESC PABLO PIZZURNO", 8378:"ESC PABLO PIZZURNO", 8379:"ESC PABLO PIZZURNO"
+};
+$('mesaSel').addEventListener('change', ()=>{
+  const v = $('mesaSel').value;
+  $('escuela').value = v && MESAS[v] ? MESAS[v] : '';
+});
+
+/* Listas en orden oficial */
+let LISTAS = [
+  "Partido Libertario","Alianza Fuerza Patria","Alianza Ciudadanos","Unión Popular Federal",
+  "Alianza Encuentro por la República","Frente Federal de Acción Solidaria",
+  "Política Abierta para la Integridad Social (PAIS)","Alianza Córdoba Te Quiero","Partido Demócrata",
+  "Acción Para el Cambio (APEC)","Defendamos Córdoba",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD","Alianza La Libertad Avanza","Unión Cívica Radical",
+  "PRO - Propuesta Republicana","Movimiento Avanzada Socialista","FE","Alianza Provincias Unidas"
+].map((name,i)=>({id:'L'+(i+1), name}));
+
+/* Render tabla de votos + atajos */
+function renderTabla(){
+  const tb = $('tb');
+  tb.innerHTML = LISTAS.map((l,i)=>
+    `<tr><td>${l.name}</td><td class="right"><input class="voto" data-idx="${i}" inputmode="numeric" value="0" style="width:120px;text-align:right;"></td></tr>`
+  ).join('');
+  const inputs = [...document.querySelectorAll('.voto')];
+  inputs.forEach(inp => inp.addEventListener('input', syncTotales));
+  function focusVoto(i){ if(i<0||i>=inputs.length) return; inputs[i].focus(); inputs[i].select(); }
+  inputs.forEach(inp=>{
+    inp.addEventListener('focus', ()=> inp.select());
+    inp.addEventListener('keydown', e=>{
+      const i = +inp.dataset.idx;
+      if(e.key==='Enter' || e.key==='ArrowDown'){ e.preventDefault(); (i<inputs.length-1)?focusVoto(i+1):($('blancos').focus(),$('blancos').select?.()); }
+      if(e.key==='ArrowUp'){ e.preventDefault(); (i>0)?focusVoto(i-1):$('mesaSel').focus(); }
+    });
+  });
+  syncTotales();
+}
+function leerVotos(){ const arr=[]; document.querySelectorAll('.voto').forEach(i=>arr.push(toInt(i.value))); return arr; }
+function syncTotales(){
+  const votos=leerVotos(), total=votos.reduce((a,b)=>a+b,0);
+  const blancos=toInt($('blancos').value), nulos=toInt($('nulos').value), recurridos=toInt($('recurridos').value), sobres=toInt($('sobres').value);
+  const contado=total+blancos+nulos+recurridos;
+  $('filaTotal').textContent = total;
+  const c=$('consistencia');
+  if (sobres===0 && contado===0) { c.textContent=''; return; }
+  let txt=`Listas:${total} + Blancos:${blancos} + Nulos:${nulos} + Rec/Imp:${recurridos} = ${contado} | Sobres:${sobres}`;
+  c.innerHTML = (contado===sobres) ? `<span class="ok">✔ ${txt}</span>` : `<span class="err">⚠ ${txt}</span>`;
+}
+['blancos','nulos','recurridos','sobres'].forEach(id=>$(id).addEventListener('input',syncTotales));
+
+/* Envío a Supabase */
+async function enviar(payload){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/cargas_mesa`, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type':'application/json',
+      'Prefer':'return=representation'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok){
+    const t = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${t}`);
+  }
+  return res.json();
+}
+function leerForm(){
+  return {
+    mesa: $('mesaSel').value,
+    escuela: $('escuela').value,
+    electores: toInt($('electores').value),
+    fiscal: $('fiscal').value,
+    listas: LISTAS.map(l=>l.name),
+    votos: leerVotos(),
+    blancos: toInt($('blancos').value),
+    nulos: toInt($('nulos').value),
+    recurridos: toInt($('recurridos').value),
+    sobres: toInt($('sobres').value),
+    obs: $('obs').value,
+    ts: new Date().toISOString()
+  };
+}
+
+/* Botones */
+$('btnGuardar').addEventListener('click', async ()=>{
+  const d = leerForm();
+  if (!d.mesa) { setStatus('Error: falta mesa'); return; }
+  try{
+    $('btnGuardar').disabled = true; setStatus('Enviando…');
+    await enviar(d);
+    setStatus('Enviado ✔');
+    $('btnNueva').click();
+  }catch(e){
+    setStatus('Error: ' + e.message);
+  }finally{
+    $('btnGuardar').disabled = false;
+  }
+});
+$('btnNueva').addEventListener('click', ()=>{
+  ['electores','fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id=>$(id).value=(['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
+  document.querySelectorAll('.voto').forEach(i=>i.value='0');
+  syncTotales(); setStatus('Listo');
+});
+
+/* INIT */
+renderTabla();
+// Fijar mesa si llega por querystring
+const mesaQS = getQS('mesa');
+if (mesaQS){
+  const sel = $('mesaSel');
+  sel.innerHTML = `<option value="${mesaQS}" selected>${mesaQS}</option>`;
+  sel.value = mesaQS;
+  sel.classList.add('muted'); sel.disabled = true;
+  $('escuela').value = MESAS[mesaQS] || '';
+  const b = $('mesaFijaBadge'); b.style.display='inline-block'; b.textContent = `Mesa fija: ${mesaQS}`;
+}
+</script>
+</body>
+</html>

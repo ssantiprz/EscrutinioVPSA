@@ -2,7 +2,7 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resultados — Villa Parque Santa Ana 26 de Octubre de 2025</title>
+<title>Resultados — Dashboard</title>
 <style>
   :root{
     --shadow:0 10px 30px rgba(0,0,0,.08);
@@ -80,14 +80,22 @@
   .tier-1{ background:linear-gradient(180deg,var(--gold1),var(--gold2)); border-color:var(--gold-border); }
   .tier-2{ background:linear-gradient(180deg,var(--silver1),var(--silver2)); border-color:var(--silver-border); }
   .tier-3{ background:linear-gradient(180deg,var(--bronze1),var(--bronze2)); border-color:var(--bronze-border); }
+
+  /* 🖨️ Vista de impresión */
+  @media print{
+    header, .toolbar { display:none !important; }
+    body{ background:#fff; }
+    .wrap{ padding:0; }
+    .card, .item, .sum-card{ box-shadow:none; }
+  }
 </style>
 <body>
 <header>
-  <h1>Resultados — Villa Parque Santa Ana 26 de Octubre de 2025</h1>
+  <h1>Resultados — Dashboard</h1>
   <span id="status" class="badge">Listo</span>
 </header>
 
-<div class="wrap">
+<div id="captureArea" class="wrap">
   <div class="toolbar">
     <label for="mesaFiltro" class="badge">Mesa</label>
     <select id="mesaFiltro">
@@ -97,11 +105,13 @@
       <option>8373</option><option>8374</option><option>8375</option><option>8376</option>
       <option>8377</option><option>8378</option><option>8379</option>
     </select>
-
     <span id="mesasInfo" class="badge">–</span>
-    
+
     <button id="btnRefresh" class="btn">Refrescar</button>
-    <span class="badge">Fuente: Recuento</span>
+    <button id="btnPrint" class="btn" title="Imprimir vista">Imprimir</button>
+    <button id="btnJPG" class="btn" title="Descargar imagen JPG">Descargar JPG</button>
+
+    <span class="badge">Fuente: Supabase</span>
     <span id="last" class="badge">Sin actualizar</span>
   </div>
 
@@ -123,6 +133,9 @@
   <!-- Resumen -->
   <div id="resumen" class="summary"></div>
 </div>
+
+<!-- html2canvas para exportar JPG -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script>
 /* ====== CONFIG ====== */
@@ -152,7 +165,10 @@ const LOGO_FILE = {
 };
 function logoPath(n){return LOGO_FILE[n]?`assets/logos/${LOGO_FILE[n]}`:''}
 
-/* Orden oficial de listas para el ranking */
+/* Total mesas (indicador) */
+const TODAS_MESAS = ['8367','8368','8369','8370','8371','8372','8373','8374','8375','8376','8377','8378','8379'];
+
+/* Orden oficial de listas */
 const LISTAS_ORDEN = [
   "Partido Libertario","Alianza Fuerza Patria","Alianza Ciudadanos","Unión Popular Federal",
   "Alianza Encuentro por la República","Frente Federal de Acción Solidaria",
@@ -162,9 +178,6 @@ const LISTAS_ORDEN = [
   "PRO - Propuesta Republicana","Movimiento Avanzada Socialista","FE","Alianza Provincias Unidas"
 ];
 
-  /* Total de mesas del operativo (para el indicador) */
-const TODAS_MESAS = ['8367','8368','8369','8370','8371','8372','8373','8374','8375','8376','8377','8378','8379'];
-  
 /* Helpers */
 const $=id=>document.getElementById(id);
 const status=t=>$('status').textContent=t;
@@ -188,10 +201,7 @@ async function fetchCargas(mesa){
 
 /* Agregación en cliente */
 function aggregate(rows){
-  // Totales BNR y participación
   let blancos=0,nulos=0,recurridos=0,sobres=0,electores=0;
-
-  // Iniciar mapa de votos por lista respetando orden oficial
   const map = new Map(LISTAS_ORDEN.map(n=>[n,0]));
 
   rows.forEach(r=>{
@@ -207,7 +217,7 @@ function aggregate(rows){
     for(let i=0;i<m;i++){
       const nombre = listas[i];
       const v = +votos[i]||0;
-      if(!map.has(nombre)) map.set(nombre,0); // por si llega una etiqueta inesperada
+      if(!map.has(nombre)) map.set(nombre,0);
       map.set(nombre, map.get(nombre)+v);
     }
   });
@@ -218,7 +228,6 @@ function aggregate(rows){
     .map((row,idx)=>({...row, ranking: idx+1}));
 
   const afirmativos = ranking.reduce((a,b)=>a+(+b.total_votos||0),0);
-
   return { ranking, blancos, nulos, recurridos, sobres, electores, afirmativos };
 }
 
@@ -241,7 +250,7 @@ function renderLista(ranking, totalAfirm){
     el.className=`item ${tier}`;
     el.innerHTML=`
       <div class="rank">#${rank}</div>
-      <div>${src?`<img class="logo" src="${src}" alt="${r.lista}" onerror="this.style.display='none'">`:''}</div>
+      <div>${src?`<img class="logo" src="${src}" alt="${r.lista}" crossOrigin="anonymous" onerror="this.style.display='none'">`:''}</div>
       <div class="name">${r.lista}</div>
       <div class="value">
         <div class="pct">${pct(votos,totalAfirm)}%</div>
@@ -277,18 +286,18 @@ async function load(){
     const mesa = $('mesaFiltro').value || '';
     const rows = await fetchCargas(mesa);
 
-// Indicador de mesas con datos
-const mesasInfoEl = $('mesasInfo');
-const mesasConDatos = new Set(rows.map(r => String(r.mesa))).size;
-if (mesa) {
-  const cargasMesa = rows.length;
-  mesasInfoEl.textContent = `Mesa ${mesa}: ${cargasMesa} carga${cargasMesa!==1?'s':''}`;
-} else {
-  mesasInfoEl.textContent = `${mesasConDatos}/${TODAS_MESAS.length} mesas con datos`;
-}
-    
+    // Indicador de mesas con datos
+    const mesasInfoEl = $('mesasInfo');
+    const mesasConDatos = new Set(rows.map(r => String(r.mesa))).size;
+    if (mesa) {
+      const cargasMesa = rows.length;
+      mesasInfoEl.textContent = `Mesa ${mesa}: ${cargasMesa} carga${cargasMesa!==1?'s':''}`;
+    } else {
+      mesasInfoEl.textContent = `${mesasConDatos}/${TODAS_MESAS.length} mesas con datos`;
+    }
+
     const agg = aggregate(rows);
-    renderLista(agg.ranking, agg.affirmativos ?? agg.afirmativos); // compat
+    renderLista(agg.ranking, agg.afirmativos);
     renderParticipacion({sobres:agg.sobres, electores:agg.electores});
     renderResumen({afirm:agg.afirmativos, blancos:agg.blancos, nulos:agg.nulos, recurridos:agg.recurridos});
     status('Listo'); $('last').textContent = `Actualizado: ${now()}${mesa?` | Mesa ${mesa}`:''}`;
@@ -301,6 +310,35 @@ if (mesa) {
 $('btnRefresh').addEventListener('click', load);
 $('mesaFiltro').addEventListener('change', load);
 function startAuto(){ if(timer) clearInterval(timer); timer=setInterval(load, 20000); }
+
+/* 🖨️ / 🖼️ Acciones */
+$('btnPrint').addEventListener('click', ()=> {
+  window.print();
+});
+$('btnJPG').addEventListener('click', async ()=>{
+  try{
+    const area = document.getElementById('captureArea');
+    // Esperar un frame por si hubo cambios visuales
+    await new Promise(r=>requestAnimationFrame(r));
+    const canvas = await html2canvas(area, {
+      scale: 2,        // mayor nitidez
+      useCORS: true,   // permitir logos externos si aplica
+      backgroundColor: '#ffffff',
+      logging: false
+    });
+    const dataURL = canvas.toDataURL('image/jpeg', 0.92);
+    const mesa = $('mesaFiltro').value || 'todas';
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = `dashboard-${mesa}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }catch(err){
+    console.error(err);
+    alert('No se pudo exportar la imagen. Probá nuevamente.');
+  }
+});
 
 /* Init */
 load(); startAuto();

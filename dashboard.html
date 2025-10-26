@@ -27,8 +27,6 @@
   .grid-note{font-size:12px;color:#64748b}
   .footer{font-size:12px;color:#64748b;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .empty{padding:20px;text-align:center;color:#64748b;border:1px dashed #e5e7eb;border-radius:12px;background:#fff}
-  .search{display:flex;gap:8px;align-items:center}
-  input[type="text"]{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
   .pill{padding:4px 8px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px}
 </style>
 <body>
@@ -58,7 +56,7 @@
 const SUPABASE_URL = 'https://jyxxflkxhlekyredxjfm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHhmbGt4aGxla3lyZWR4amZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0NjAyODUsImV4cCI6MjA3NzAzNjI4NX0.3E63g4A4MGvm7q1UBLosCKE1QZaAmqrGpCN06koIlKg';
 
-/* Mapa opcional de colores por lista (podés ajustarlo cuando quieras) */
+/* Colores opcionales */
 const COLORS = {
   "Alianza Provincias Unidas": "#0f172a",
   "Alianza La Libertad Avanza": "#8b5cf6",
@@ -86,7 +84,7 @@ const status = txt => $('status').textContent = txt;
 function fmt(n){ return new Intl.NumberFormat('es-AR').format(n); }
 function now(){ const d=new Date(); return d.toLocaleString('es-AR'); }
 
-/* ====== Fetch a Supabase (REST) ====== */
+/* ====== Fetch a Supabase ====== */
 async function fetchResultados(){
   const url = `${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
   const res = await fetch(url, {
@@ -115,16 +113,23 @@ function render(data){
   empty.style.display = 'none';
   $('count').textContent = `${data.length} listas`;
 
+  // Calcular total de votos afirmativos
+  const totalAfirmativos = data.reduce((a,b)=>a+(Number(b.total_votos)||0),0);
+
   data.forEach(row=>{
-    const card = document.createElement('div');
+    const votos = Number(row.total_votos)||0;
+    const pct = totalAfirmativos ? (votos/totalAfirmativos*100).toFixed(1) : 0;
     const rank = Number(row.ranking)||999;
     const tier = rank===1 ? 'tier-1' : rank===2 ? 'tier-2' : rank===3 ? 'tier-3' : 'tier-4';
     const color = COLORS[row.lista] || '#111827';
+    const size = rank===1?'36px':rank===2?'30px':rank===3?'24px':'20px';
+
+    const card = document.createElement('div');
     card.className = `card ${tier}`;
     card.innerHTML = `
       <div class="rank">#${rank}</div>
       <div class="title" style="color:${color}">${row.lista}</div>
-      <div class="total" style="color:${color};font-size:${rank===1?'36px':rank===2?'30px':rank===3?'24px':'20px'}">${fmt(row.total_votos)}</div>
+      <div class="total" style="color:${color};font-size:${size}">${fmt(votos)} <span style="font-size:14px;opacity:.8;">(${pct}%)</span></div>
     `;
     grid.appendChild(card);
   });
@@ -150,7 +155,6 @@ async function load(){
 }
 $('btnRefresh').addEventListener('click', load);
 
-/* Auto-refresh cada 20s */
 function startAuto(){
   if(timer) clearInterval(timer);
   timer = setInterval(load, 20000);

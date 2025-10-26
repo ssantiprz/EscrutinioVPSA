@@ -19,7 +19,7 @@
   .list{display:flex;flex-direction:column;gap:10px}
   .item{
     background:#fff;border-radius:12px;box-shadow:var(--shadow);
-    padding:12px; display:grid; grid-template-columns: 44px 1fr auto;
+    padding:12px; display:grid; grid-template-columns: 44px 56px 1fr auto;
     gap:12px; align-items:center;
   }
   .rank{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
@@ -36,10 +36,17 @@
   .tier-2 .num{font-size:28px}
   .tier-3 .name{font-size:18px}
   .tier-3 .num{font-size:22px}
-  .tier-4{padding:8px}
+  .tier-4{padding:8px; grid-template-columns: 36px 44px 1fr auto; }
   .tier-4 .rank{width:36px;height:36px;border-radius:10px}
   .tier-4 .name{font-size:16px;font-weight:600}
   .tier-4 .num{font-size:18px}
+
+  /* Logos */
+  .logo{ width:40px; height:40px; object-fit:contain; }
+  .tier-1 .logo{ width:56px; height:56px; }
+  .tier-2 .logo{ width:48px; height:48px; }
+  .tier-3 .logo{ width:42px; height:42px; }
+  .tier-4 .logo{ width:32px; height:32px; }
 
   .empty{padding:20px;text-align:center;color:#64748b;border:1px dashed #e5e7eb;border-radius:12px;background:#fff}
 
@@ -64,7 +71,7 @@
 <div class="wrap">
   <div class="toolbar">
     <button id="btnRefresh" class="btn">Refrescar</button>
-    <span class="badge">Fuente: Escrutinio Provisorio</span>
+    <span class="badge">Fuente: Supabase</span>
     <span id="last" class="badge">Sin actualizar</span>
   </div>
 
@@ -101,6 +108,32 @@ const COLORS = {
   "FE": "#1f2937"
 };
 
+/* Archivo de logo por lista (PNG en assets/logos/) */
+const LOGO_FILE = {
+  "Partido Libertario": "partido-libertario.png",
+  "Alianza Fuerza Patria": "alianza-fuerza-patria.png",
+  "Alianza Ciudadanos": "alianza-ciudadanos.png",
+  "Unión Popular Federal": "union-popular-federal.png",
+  "Alianza Encuentro por la República": "alianza-encuentro-por-la-republica.png",
+  "Frente Federal de Acción Solidaria": "frente-federal-accion-solidaria.png",
+  "Política Abierta para la Integridad Social (PAIS)": "pais.png",
+  "Alianza Córdoba Te Quiero": "alianza-cordoba-te-quiero.png",
+  "Partido Demócrata": "partido-democrata.png",
+  "Acción Para el Cambio (APEC)": "apec.png",
+  "Defendamos Córdoba": "defendamos-cordoba.png",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD": "fit-unidad.png",
+  "Alianza La Libertad Avanza": "la-libertad-avanza.png",
+  "Unión Cívica Radical": "ucr.png",
+  "PRO - Propuesta Republicana": "pro.png",
+  "Movimiento Avanzada Socialista": "mas.png",
+  "FE": "fe.png",
+  "Alianza Provincias Unidas": "provincias-unidas.png"
+};
+function logoPath(nombre){
+  const f = LOGO_FILE[nombre];
+  return f ? `assets/logos/${f}` : '';
+}
+
 /* ====== Helpers ====== */
 const $ = id => document.getElementById(id);
 const status = txt => $('status').textContent = txt;
@@ -110,9 +143,7 @@ function now(){ return new Date().toLocaleString('es-AR'); }
 
 /* ====== Fetch a Supabase ====== */
 async function fetchJSON(url){
-  const res = await fetch(url, {
-    headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SUPABASE_ANON_KEY }
-  });
+  const res = await fetch(url, { headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SUPABASE_ANON_KEY } });
   if(!res.ok){ throw new Error(`HTTP ${res.status} ${await res.text()}`); }
   return res.json();
 }
@@ -150,11 +181,13 @@ function renderLista(data){
     const rank = Number(row.ranking)||999;
     const color = COLORS[row.lista] || '#111827';
     const tier = rank===1?'tier-1':rank===2?'tier-2':rank===3?'tier-3':'tier-4';
+    const srcLogo = logoPath(row.lista);
 
     const item = document.createElement('div');
     item.className = `item ${tier}`;
     item.innerHTML = `
       <div class="rank">#${rank}</div>
+      <div>${srcLogo ? `<img class="logo" src="${srcLogo}" alt="${row.lista}" onerror="this.style.display='none'">` : ''}</div>
       <div class="name" style="color:${color}">${row.lista}</div>
       <div class="value">
         <div class="num" style="color:${color}">${fmt(votos)}</div>

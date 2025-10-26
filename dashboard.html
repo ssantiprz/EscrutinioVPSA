@@ -22,14 +22,27 @@
   .btn[disabled]{opacity:.6;cursor:not-allowed}
 
   /* Panel superior: participación */
-  .kpis{display:grid;grid-template-columns:1fr;gap:12px}
-  .card{
-    background:#fff;border-radius:14px;box-shadow:var(--shadow);
-    padding:14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb
-  }
-  .kpi-title{font-size:12px;color:#64748b}
-  .kpi-big{font-weight:800;font-size:26px}
-  .kpi-sub{font-size:12px;color:#64748b}
+.kpis{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;             /* menos separación vertical */
+  transform:scale(0.5); /* 💡 reduce todo el bloque a la mitad */
+  transform-origin: left top; /* ancla la escala al borde superior izquierdo */
+}
+.card{
+  background:#fff;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  padding:8px;         /* menos padding */
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border:1px solid #e5e7eb;
+}
+.kpi-title{font-size:10px;color:#64748b}
+.kpi-big{font-weight:800;font-size:16px}
+.kpi-sub{font-size:10px;color:#64748b}
+
 
   /* Lista vertical (ranking) */
   .list{display:flex;flex-direction:column;gap:10px}

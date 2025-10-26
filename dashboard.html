@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resultados — Dashboard</title>
+<style>
+  :root{ --shadow:0 10px 30px rgba(0,0,0,.08); --bg:#f6f7fb; --ink:#0f172a; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink)}
+  header{position:sticky;top:0;z-index:5;background:#fff;box-shadow:var(--shadow);padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  h1{margin:0;font-size:18px}
+  .badge{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px;font-size:12px}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:16px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#0f172a;color:#fff;font-weight:600;cursor:pointer}
+  .btn[disabled]{opacity:.6;cursor:not-allowed}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .card{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:6px}
+  .title{font-weight:700;line-height:1.15}
+  .total{font-variant-numeric:tabular-nums;font-weight:800}
+  .rank{font-size:12px;color:#64748b}
+  /* Escalas por ranking */
+  .tier-1{transform:scale(1.12)}
+  .tier-2{transform:scale(1.06)}
+  .tier-3{transform:scale(1.02)}
+  .tier-4{transform:scale(1.00);opacity:.98}
+  .grid-note{font-size:12px;color:#64748b}
+  .footer{font-size:12px;color:#64748b;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .empty{padding:20px;text-align:center;color:#64748b;border:1px dashed #e5e7eb;border-radius:12px;background:#fff}
+  .search{display:flex;gap:8px;align-items:center}
+  input[type="text"]{padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+  .pill{padding:4px 8px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;font-size:12px}
+</style>
+<body>
+<header>
+  <h1>Resultados — Dashboard</h1>
+  <span id="status" class="badge">Listo</span>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <button id="btnRefresh" class="btn">Refrescar</button>
+    <span class="pill">Fuente: v_resultados (Supabase)</span>
+    <span id="last" class="badge">Sin actualizar</span>
+  </div>
+
+  <div id="grid" class="cards"></div>
+  <div id="empty" class="empty" style="display:none;">Sin datos todavía. Cargá alguna mesa para ver resultados.</div>
+
+  <div class="footer">
+    <span>Regla visual: 1º grande, 2º mediano, 3º chico, 4º+ iguales.</span>
+    <span id="count" class="grid-note"></span>
+  </div>
+</div>
+
+<script>
+/* ====== CONFIG ====== */
+const SUPABASE_URL = 'https://jyxxflkxhlekyredxjfm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHhmbGt4aGxla3lyZWR4amZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0NjAyODUsImV4cCI6MjA3NzAzNjI4NX0.3E63g4A4MGvm7q1UBLosCKE1QZaAmqrGpCN06koIlKg';
+
+/* Mapa opcional de colores por lista (podés ajustarlo cuando quieras) */
+const COLORS = {
+  "Alianza Provincias Unidas": "#0f172a",
+  "Alianza La Libertad Avanza": "#8b5cf6",
+  "Unión Cívica Radical": "#ef4444",
+  "PRO - Propuesta Republicana": "#f59e0b",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD": "#dc2626",
+  "Partido Libertario": "#f59e0b",
+  "Alianza Fuerza Patria": "#2563eb",
+  "Alianza Ciudadanos": "#0891b2",
+  "Unión Popular Federal": "#16a34a",
+  "Alianza Encuentro por la República": "#0ea5e9",
+  "Frente Federal de Acción Solidaria": "#22c55e",
+  "Política Abierta para la Integridad Social (PAIS)": "#10b981",
+  "Alianza Córdoba Te Quiero": "#3b82f6",
+  "Partido Demócrata": "#6b7280",
+  "Acción Para el Cambio (APEC)": "#f97316",
+  "Defendamos Córdoba": "#64748b",
+  "Movimiento Avanzada Socialista": "#9333ea",
+  "FE": "#1f2937"
+};
+
+/* ====== Helpers ====== */
+const $ = id => document.getElementById(id);
+const status = txt => $('status').textContent = txt;
+function fmt(n){ return new Intl.NumberFormat('es-AR').format(n); }
+function now(){ const d=new Date(); return d.toLocaleString('es-AR'); }
+
+/* ====== Fetch a Supabase (REST) ====== */
+async function fetchResultados(){
+  const url = `${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
+  const res = await fetch(url, {
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+    }
+  });
+  if(!res.ok){
+    const t = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${t}`);
+  }
+  return res.json();
+}
+
+/* ====== Render ====== */
+function render(data){
+  const grid = $('grid');
+  const empty = $('empty');
+  grid.innerHTML = '';
+  if(!data || !data.length){
+    empty.style.display = 'block';
+    $('count').textContent = '';
+    return;
+  }
+  empty.style.display = 'none';
+  $('count').textContent = `${data.length} listas`;
+
+  data.forEach(row=>{
+    const card = document.createElement('div');
+    const rank = Number(row.ranking)||999;
+    const tier = rank===1 ? 'tier-1' : rank===2 ? 'tier-2' : rank===3 ? 'tier-3' : 'tier-4';
+    const color = COLORS[row.lista] || '#111827';
+    card.className = `card ${tier}`;
+    card.innerHTML = `
+      <div class="rank">#${rank}</div>
+      <div class="title" style="color:${color}">${row.lista}</div>
+      <div class="total" style="color:${color};font-size:${rank===1?'36px':rank===2?'30px':rank===3?'24px':'20px'}">${fmt(row.total_votos)}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+/* ====== Ciclo ====== */
+let timer = null;
+async function load(){
+  try{
+    status('Cargando…');
+    $('btnRefresh').disabled = true;
+    const data = await fetchResultados();
+    render(data);
+    status('Listo');
+    $('last').textContent = `Actualizado: ${now()}`;
+  }catch(e){
+    status('Error');
+    $('last').textContent = e.message;
+    console.error(e);
+  }finally{
+    $('btnRefresh').disabled = false;
+  }
+}
+$('btnRefresh').addEventListener('click', load);
+
+/* Auto-refresh cada 20s */
+function startAuto(){
+  if(timer) clearInterval(timer);
+  timer = setInterval(load, 20000);
+}
+
+/* Init */
+load();
+startAuto();
+</script>
+</body>
+</html>

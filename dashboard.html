@@ -15,7 +15,7 @@
   .btn{padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#0f172a;color:#fff;font-weight:600;cursor:pointer}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
 
-  /* === Lista vertical === */
+  /* Lista vertical */
   .list{display:flex;flex-direction:column;gap:10px}
   .item{
     background:#fff;border-radius:12px;box-shadow:var(--shadow);
@@ -117,9 +117,9 @@ async function fetchJSON(url){
   return res.json();
 }
 
-/* Totales de blancos/nulos/recurridos (suma en la tabla) */
+/* Totales (vista v_totales_bnr) */
 async function fetchTotalesBNR(){
-  const url = `${SUPABASE_URL}/rest/v1/cargas_mesa?select=blancos:sum(blancos),nulos:sum(nulos),recurridos:sum(recurridos)`;
+  const url = `${SUPABASE_URL}/rest/v1/v_totales_bnr?select=blancos,nulos,recurridos`;
   const arr = await fetchJSON(url);
   return arr && arr[0] ? {
     blancos: Number(arr[0].blancos)||0,
@@ -128,7 +128,7 @@ async function fetchTotalesBNR(){
   } : {blancos:0,nulos:0,recurridos:0};
 }
 
-/* Ranking por lista (vista) */
+/* Ranking por lista (vista v_resultados) */
 async function fetchRanking(){
   const url = `${SUPABASE_URL}/rest/v1/v_resultados?select=lista,total_votos,ranking&order=total_votos.desc`;
   return fetchJSON(url);

@@ -56,8 +56,8 @@
         <input id="escuela" placeholder="Se completa automáticamente" readonly>
       </div>
       <div class="col-3">
-        <label>Electores (opcional)</label>
-        <input id="electores" inputmode="numeric" placeholder="Ej: 350">
+        <label>Electores</label>
+        <input id="electores" inputmode="numeric" placeholder="—" readonly title="Se completa automáticamente según la mesa">
       </div>
       <div class="col-4">
         <label>Fiscal/Responsable</label>
@@ -113,10 +113,20 @@ const MESAS = {
   8373:"ESC PABLO PIZZURNO", 8374:"ESC PABLO PIZZURNO", 8375:"ESC PABLO PIZZURNO",
   8376:"ESC PABLO PIZZURNO", 8377:"ESC PABLO PIZZURNO", 8378:"ESC PABLO PIZZURNO", 8379:"ESC PABLO PIZZURNO"
 };
-$('mesaSel').addEventListener('change', ()=>{
+
+/* Mesa → Electores (fijados y no editables) */
+const ELECTORES = {
+  8367:346, 8368:346, 8369:346, 8370:346, 8371:346, 8372:346,
+  8373:346, 8374:346, 8375:345, 8376:345, 8377:345, 8378:345, 8379:345
+};
+
+/* Sincroniza datos derivados al cambiar mesa */
+function onMesaChange(){
   const v = $('mesaSel').value;
   $('escuela').value = v && MESAS[v] ? MESAS[v] : '';
-});
+  $('electores').value = v && ELECTORES[v] ? ELECTORES[v] : '';
+}
+$('mesaSel').addEventListener('change', onMesaChange);
 
 /* Listas en orden oficial */
 let LISTAS = [
@@ -179,10 +189,12 @@ async function enviar(payload){
   return res.json();
 }
 function leerForm(){
+  const mesa = $('mesaSel').value;
   return {
-    mesa: $('mesaSel').value,
+    mesa,
     escuela: $('escuela').value,
-    electores: toInt($('electores').value),
+    // Siempre tomamos electores del mapa (ignora cualquier cambio manual)
+    electores: ELECTORES[mesa] ? Number(ELECTORES[mesa]) : 0,
     fiscal: $('fiscal').value,
     listas: LISTAS.map(l=>l.name),
     votos: leerVotos(),
@@ -211,8 +223,9 @@ $('btnGuardar').addEventListener('click', async ()=>{
   }
 });
 $('btnNueva').addEventListener('click', ()=>{
-  ['electores','fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id=>$(id).value=(['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
+  ['fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id=>$(id).value=(['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
   document.querySelectorAll('.voto').forEach(i=>i.value='0');
+  // mantenemos electores según mesa elegida
   syncTotales(); setStatus('Listo');
 });
 
@@ -226,6 +239,7 @@ if (mesaQS){
   sel.value = mesaQS;
   sel.classList.add('muted'); sel.disabled = true;
   $('escuela').value = MESAS[mesaQS] || '';
+  $('electores').value = ELECTORES[mesaQS] || '';
   const b = $('mesaFijaBadge'); b.style.display='inline-block'; b.textContent = `Mesa fija: ${mesaQS}`;
 }
 </script>
